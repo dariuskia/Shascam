@@ -9,8 +9,6 @@ from flask_sock import Sock
 from SpeechClientBridge import SpeechClientBridge
 from google.cloud.speech import RecognitionConfig, StreamingRecognitionConfig
 
-global last_msg
-last_msg = ""
 
 app = Flask(__name__)
 sockets = Sock(app)
@@ -33,8 +31,7 @@ def stream():
     # return render_template("templates/streams.xml", pnumber=pnumber)
     return render_template("streams.xml")
 
-def on_transcription_response(response, track="Unknown"):
-    global last_msg
+def on_transcription_response(response):
     if not response.results:
         return
 
@@ -43,9 +40,7 @@ def on_transcription_response(response, track="Unknown"):
         return
 
     transcription = result.alternatives[0].transcript
-    if transcription != last_msg:
-        print(f"{track}: " + transcription)
-        last_msg = transcription
+    print("Transcription: " + transcription)
 
 @sockets.route('/media')
 def echo(ws):
@@ -57,7 +52,7 @@ def echo(ws):
     while True:
         message = ws.receive()
         if message is None:
-            bridge.add_request(None)
+            bridge.add_request(None, None)
             bridge.terminate()
             break
 
@@ -67,9 +62,10 @@ def echo(ws):
             print(f"Media WS: Received event '{data['event']}': {message}")
             continue
         if data["event"] == "media":
+            print(data)
             media = data["media"]
             chunk = base64.b64decode(media["payload"])
-            bridge.add_request(chunk)
+            bridge.add_request(chunk, media["track"])
         if data["event"] == "stop":
             print(f"Media WS: Received event 'stop': {message}")
             print("Stopping...")

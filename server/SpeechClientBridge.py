@@ -17,15 +17,17 @@ class SpeechClientBridge:
             speech.StreamingRecognizeRequest(audio_content=content)
             for content in stream
         )
+        # responses = client.streaming_recognize(self.streaming_config, (req[0] for req in requests_list))
         responses = client.streaming_recognize(self.streaming_config, requests)
+        # self.process_responses_loop(responses, (req[1] for req in requests_list))
         self.process_responses_loop(responses)
 
 
     def terminate(self):
         self._ended = True
 
-    def add_request(self, buffer, track):
-        self._queue.put((bytes(buffer), track), block=False)
+    def add_request(self, buffer):
+        self._queue.put(bytes(buffer), block=False)
 
     def process_responses_loop(self, responses):
         for response in responses:
@@ -39,10 +41,11 @@ class SpeechClientBridge:
             # Use a blocking get() to ensure there's at least one chunk of
             # data, and stop iteration if the chunk is None, indicating the
             # end of the audio stream.
-            chunk = self._queue.get()
+            chunk, last_track = self._queue.get()
             if chunk is None:
                 return
             data = [chunk]
+            self.tracks = []
 
             # Now consume whatever other data's still buffered.
             while True:
@@ -51,7 +54,9 @@ class SpeechClientBridge:
                     if chunk is None:
                         return
                     data.append(chunk)
+                    last_track = track
                 except queue.Empty:
                     break
-
+            self.last_track = last_track
             yield b"".join(data)
+        print("outside of loop")
