@@ -1,18 +1,65 @@
-from flask import Flask
-from twilio.twiml.voice_response import VoiceResponse
+import base64
+import json
+import logging
+
+from flask import Flask, render_template
+from flask_sock import Sock
 
 app = Flask(__name__)
+sockets = Sock(app)
 
-@app.route("/voice", methods=['GET', 'POST'])
-def voice():
-    """Respond to incoming phone calls with a 'Hello world' message"""
-    # Start our TwiML response
-    resp = VoiceResponse()
+HTTP_SERVER_PORT = 8080
 
-    # Read a message aloud to the caller
-    resp.say("Hello world!")
+@app.route('/stream', methods=['POST'])
+def stream():
+    # pnumber = request.values.get("pnumber")
+    # return render_template("templates/streams.xml", pnumber=pnumber)
+    return render_template("streams.xml")
 
-    return str(resp)
+@sockets.route('/media')
+def echo(ws):
+    print("hello")
+    app.logger.info("Connection accepted")
+    # A lot of messages will be sent rapidly. We'll stop showing after the first one.
+    while True:
+        data = ws.receive()
+        print(type(data), data)
+        """
+        if message is None:
+            app.logger.info("No message received...")
+            continue
 
-if __name__ == "__main__":
-    app.run(debug=True)
+        # Messages are a JSON encoded string
+        data = json.loads(message)
+
+        # Using the event type you can determine what type of message you are receiving
+        if data['event'] == "connected":
+            app.logger.info("Connected Message received: {}".format(message))
+        if data['event'] == "start":
+            app.logger.info("Start Message received: {}".format(message))
+        if data['event'] == "media":
+            if not has_seen_media:
+                app.logger.info("Media message: {}".format(message))
+                payload = data['media']['payload']
+                app.logger.info("Payload is: {}".format(payload))
+                chunk = base64.b64decode(payload)
+                app.logger.info("That's {} bytes".format(len(chunk)))
+                app.logger.info("Additional media messages from WebSocket are being suppressed....")
+                has_seen_media = True
+        if data['event'] == "closed":
+            app.logger.info("Closed Message received: {}".format(message))
+            break
+        message_count += 1
+        """
+
+    app.logger.info("Connection closed. Received a total of {} messages".format(message_count))
+
+
+if __name__ == '__main__':
+    app.logger.setLevel(logging.DEBUG)
+    from gevent import pywsgi
+    from geventwebsocket.handler import WebSocketHandler
+
+    server = pywsgi.WSGIServer(('', HTTP_SERVER_PORT), app, handler_class=WebSocketHandler)
+    print("Server listening on: http://localhost:" + str(HTTP_SERVER_PORT))
+    server.serve_forever()
