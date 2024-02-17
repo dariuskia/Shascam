@@ -5,6 +5,8 @@ import logging
 from flask import Flask, render_template
 from flask_sock import Sock
 
+from SpeechClientBridge import SpeechClientBridge
+
 app = Flask(__name__)
 sockets = Sock(app)
 
@@ -22,8 +24,11 @@ def echo(ws):
     app.logger.info("Connection accepted")
     # A lot of messages will be sent rapidly. We'll stop showing after the first one.
     while True:
-        data = ws.receive()
-        print(type(data), data)
+        message = ws.receive()
+        if message is None:
+            data = json.loads(message)
+        
+
 
 
 if __name__ == '__main__':
