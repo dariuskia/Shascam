@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Start>
-    <Stream url="wss://superb-mighty-tortoise.ngrok-free.app/media"></Stream>
+    <Stream track="both_tracks" url="wss://superb-mighty-tortoise.ngrok-free.app/media" />
   </Start>
   <Dial>+14086217775</Dial>
 </Response>

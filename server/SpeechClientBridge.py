@@ -24,8 +24,8 @@ class SpeechClientBridge:
     def terminate(self):
         self._ended = True
 
-    def add_request(self, buffer):
-        self._queue.put(bytes(buffer), block=False)
+    def add_request(self, buffer, track):
+        self._queue.put((bytes(buffer), track), block=False)
 
     def process_responses_loop(self, responses):
         for response in responses:
@@ -47,7 +47,7 @@ class SpeechClientBridge:
             # Now consume whatever other data's still buffered.
             while True:
                 try:
-                    chunk = self._queue.get(block=False)
+                    chunk, track = self._queue.get(block=False)
                     if chunk is None:
                         return
                     data.append(chunk)

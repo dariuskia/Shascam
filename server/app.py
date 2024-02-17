@@ -3,11 +3,14 @@ import json
 import logging
 import threading
 
-from flask import Flask, render_template
+from flask import Flask, render_template, session
 from flask_sock import Sock
 
 from SpeechClientBridge import SpeechClientBridge
 from google.cloud.speech import RecognitionConfig, StreamingRecognitionConfig
+
+global last_msg
+last_msg = ""
 
 app = Flask(__name__)
 sockets = Sock(app)
@@ -18,6 +21,7 @@ config = RecognitionConfig(
     encoding=RecognitionConfig.AudioEncoding.MULAW,
     sample_rate_hertz=8000,
     language_code="en-US",
+    model="phone_call"
 )
 
 streaming_config = StreamingRecognitionConfig(config=config, interim_results=True)
@@ -29,7 +33,8 @@ def stream():
     # return render_template("templates/streams.xml", pnumber=pnumber)
     return render_template("streams.xml")
 
-def on_transcription_response(response):
+def on_transcription_response(response, track="Unknown"):
+    global last_msg
     if not response.results:
         return
 
@@ -38,7 +43,9 @@ def on_transcription_response(response):
         return
 
     transcription = result.alternatives[0].transcript
-    print("Transcription: " + transcription)
+    if transcription != last_msg:
+        print(f"{track}: " + transcription)
+        last_msg = transcription
 
 @sockets.route('/media')
 def echo(ws):
@@ -49,13 +56,13 @@ def echo(ws):
 
     while True:
         message = ws.receive()
-        app.logger.info(message)
         if message is None:
             bridge.add_request(None)
             bridge.terminate()
             break
 
         data = json.loads(message)
+        # print(data)
         if data["event"] in ("connected", "start"):
             print(f"Media WS: Received event '{data['event']}': {message}")
             continue
