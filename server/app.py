@@ -1,16 +1,27 @@
 import base64
 import json
 import logging
+import threading
 
 from flask import Flask, render_template
 from flask_sock import Sock
 
 from SpeechClientBridge import SpeechClientBridge
+from google.cloud.speech import RecognitionConfig, StreamingRecognitionConfig
 
 app = Flask(__name__)
 sockets = Sock(app)
 
 HTTP_SERVER_PORT = 8080
+
+config = RecognitionConfig(
+    encoding=RecognitionConfig.AudioEncoding.MULAW,
+    sample_rate_hertz=8000,
+    language_code="en-US",
+)
+
+streaming_config = StreamingRecognitionConfig(config=config, interim_results=True)
+
 
 @app.route('/stream', methods=['POST'])
 def stream():
@@ -18,15 +29,50 @@ def stream():
     # return render_template("templates/streams.xml", pnumber=pnumber)
     return render_template("streams.xml")
 
+def on_transcription_response(response):
+    if not response.results:
+        return
+
+    result = response.results[0]
+    if not result.alternatives:
+        return
+
+    transcription = result.alternatives[0].transcript
+    print("Transcription: " + transcription)
+
 @sockets.route('/media')
 def echo(ws):
-    print("hello")
-    app.logger.info("Connection accepted")
-    # A lot of messages will be sent rapidly. We'll stop showing after the first one.
+    print("WS connection opened")
+    bridge = SpeechClientBridge(streaming_config, on_transcription_response)
+    t = threading.Thread(target=bridge.start)
+    t.start()
+
     while True:
         message = ws.receive()
+        app.logger.info(message)
         if message is None:
-            data = json.loads(message)
+            bridge.add_request(None)
+            bridge.terminate()
+            break
+
+        data = json.loads(message)
+        if data["event"] in ("connected", "start"):
+            print(f"Media WS: Received event '{data['event']}': {message}")
+            continue
+        if data["event"] == "media":
+            media = data["media"]
+            chunk = base64.b64decode(media["payload"])
+            bridge.add_request(chunk)
+        if data["event"] == "stop":
+            print(f"Media WS: Received event 'stop': {message}")
+            print("Stopping...")
+            ws.close()
+            break
+
+    bridge.terminate()
+    print("WS connection closed")
+
+
         
 
 

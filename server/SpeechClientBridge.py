@@ -20,6 +20,7 @@ class SpeechClientBridge:
         responses = client.streaming_recognize(self.streaming_config, requests)
         self.process_responses_loop(responses)
 
+
     def terminate(self):
         self._ended = True
 
