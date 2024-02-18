@@ -36,11 +36,6 @@ config = RecognitionConfig(
 streaming_config = StreamingRecognitionConfig(config=config, interim_results=True)
 
 
-# @app.route('/', methods=['GET'])
-# def home():
-#     return infResponse
-
-
 @app.route('/stream', methods=['POST'])
 def stream():
     # pnumber = request.values.get("pnumber")
