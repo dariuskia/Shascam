@@ -60,20 +60,36 @@ def on_transcription_response(response):
     if totalMessages - numMessages >= 12:
         message = " ".join(totalMessages)
         infResponse = generate(message)
-        category = infResponse.split("\n")[0]
-        if category == "Very Likely" or category == "Likely":
-            curr_message = "🧌 Beware! Scam likely!"
-            send_notification(
-                token="cJFlg2RjXENShemCj0klZZ:APA91bED_Czt--ZpMynY5pMmrT2Owfj6fNaHBFtiFNMJYjXeVmPs00UznYpUtrzs8kETLKzwVPRyCTbo8K1-SI610C7UK1wFOEto975h8AgPVi9Fzbz9SVfcZEXzBLI0EUx4nHBl8-FW",
-                title="",
-                message=curr_message
-            )
+        print(infResponse)
+        # category = infResponse.split("\n")[0]
+        # if category == "Very Likely" or category == "Likely":
+        #     curr_message = "🧌 Beware! Scam likely!"
+        #     send_notification(
+        #         token="cJFlg2RjXENShemCj0klZZ:APA91bED_Czt--ZpMynY5pMmrT2Owfj6fNaHBFtiFNMJYjXeVmPs00UznYpUtrzs8kETLKzwVPRyCTbo8K1-SI610C7UK1wFOEto975h8AgPVi9Fzbz9SVfcZEXzBLI0EUx4nHBl8-FW",
+        #         title="",
+        #         message=curr_message
+        #     )
                 
 
         
 @app.route('/scam_detect', methods=['GET'])
 def scam_detect():
-    infResponse
+    category = infResponse.split("\n")[0]
+    justify = None
+    action_bool = True
+    action_ques = None
+    if category == "Very Likely":
+        justify = infResponse.split("\n")[1]
+        action_bool = True
+        action_ques = infResponse.split("\n")[2]
+    elif category == "Likely":
+        justify = infResponse.split("\n")[1]
+        action_bool = False
+        action_ques = infResponse.split("\n")[2]
+    
+    curr_out = {"category": category, "justify": justify, "action_bool": action_bool, "action_ques": action_ques}
+    json_out = json.dumps(curr_out)
+    return json_out
 
 @sockets.route('/media')
 def echo(ws):
@@ -116,7 +132,7 @@ You are an AI assistant tasked with classifying cell phone conversations as scam
 I will provide you the general structure for scam calls, examples of scam call topics and patterns, and finally the transcript of the call in question. 
 I want you to analyze the transcript and decide whether the transcript describes a scam call or a normal call. 
 Respond only with 1 of the 4 following categories: "Very Likely Scam", "Likely Scam", "Unlikely Scam", "Very Unlikely Scam." On a new line add a 2-3 sentence justification for each decision.
-Give the following extraneous information depending on the decided category:
+On a new line, give the following extraneous information depending on the decided category:
 1. Very Likely: Provide an action for the user to do. For example, "Hang up immediately.", or "Do NOT give any personal information."
 2. Likely: Provide clarifying questions for the user to ask. For example, "Why do you need this information?"
 3. Unlikely: Do NOT provide any actions or questions for the user to do.
@@ -193,13 +209,6 @@ def send_notification(token, title, message, ):
         print("Notification sent successfully.")
     else:
         print("Failed to send notification. Status code:", response.status_code)
-
-# Example Usage
-send_notification(
-    token="cJFlg2RjXENShemCj0klZZ:APA91bED_Czt--ZpMynY5pMmrT2Owfj6fNaHBFtiFNMJYjXeVmPs00UznYpUtrzs8kETLKzwVPRyCTbo8K1-SI610C7UK1wFOEto975h8AgPVi9Fzbz9SVfcZEXzBLI0EUx4nHBl8-FW",
-    title="Notification Title",
-    message="Notification Message"
-)
 
 
 
