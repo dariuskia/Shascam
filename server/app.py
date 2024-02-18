@@ -2,6 +2,7 @@ import base64
 import json
 import logging
 import threading
+import regex as re
 
 from flask import Flask, render_template, session, request
 from flask_sock import Sock
@@ -16,10 +17,10 @@ from firebase_admin import credentials, messaging
 from SpeechClientBridge import SpeechClientBridge
 from google.cloud.speech import RecognitionConfig, StreamingRecognitionConfig
 
-global lastMessages, numMessages
-global infResponse
+global lastMessages, numMessages, infResponse
 lastMessages = []
 numMessages = 0
+infResponse = None
 
 app = Flask(__name__)
 sockets = Sock(app)
@@ -80,20 +81,39 @@ def on_transcription_response(response):
         
 @app.route('/scam_detect', methods=['GET'])
 def scam_detect():
+    global infResponse
     if infResponse != None:
-        category = infResponse.split("\n")[0]
+        print("infresponse: ", infResponse)
+        fields = re.split(r"\n+", infResponse.strip())
+        category = fields[0]
+        if "Likely" in category:
+            json_res = {
+                "category": fields[0],
+                "justify": fields[1],
+                "action": fields[2]
+            }
+        else:
+            json_res = {
+                "category": fields[0],
+                "justify": fields[1],
+                "action": None
+            }
+        return json.dumps(json_res)
+
+    if infResponse != None:
+        category = infResponse.split("\n\n")[0]
         justify = None
         action_bool = True
         action_ques = None
         
         if category == "Very Likely":
-            justify = infResponse.split("\n")[1]
+            justify = infResponse.split("\n\n")[1]
             action_bool = True
-            action_ques = infResponse.split("\n")[2]
+            action_ques = infResponse.split("\n\n")[2]
         elif category == "Likely":
-            justify = infResponse.split("\n")[1]
+            justify = infResponse.split("\n\n")[1]
             action_bool = False
-            action_ques = infResponse.split("\n")[2]
+            action_ques = infResponse.split("\n\n")[2]
         
         curr_out = {"category": category, "justify": justify, "action_bool": action_bool, "action_ques": action_ques}
         json_out = json.dumps(curr_out)
@@ -143,31 +163,26 @@ def generate(curr_text):
     input_ = """
 ```system
 You are an AI assistant tasked with classifying cell phone conversations as scam calls.
-I will provide you the general structure for scam calls, examples of scam call topics and patterns, and finally the transcript of the call in question.
+I will provide you examples of scam call topics and patterns, the format in which you should respond, and finally the transcript of the call in question.
 I want you to analyze the transcript and decide whether the transcript describes a scam call or a normal call.
-Respond only with 1 of the 4 following categories: "Very Likely Scam", "Likely Scam", "Unlikely Scam", "Very Unlikely Scam." On a new line add a 2-3 sentence justification for each decision.
-Give the following extraneous information on a new line depending on the decided category:
-1. Very Likely: Provide an action for the user to do. For example, "Hang up immediately.", or "Do NOT give any personal information."
-2. Likely: Provide clarifying questions for the user to ask. For example, "Why do you need this information?"
-3. Unlikely: Do NOT provide any actions or questions for the user to do.
-4. Very Unlikely: Do NOT provide any actions or questions for the user to do.
+On one line, state 1 of the 4 following categories: "Very Likely Scam", "Likely Scam", "Unlikely Scam", "Very Unlikely Scam." 
+On the next line, add a 2-3 sentence justification for your decision.
+If the category is Unlikely or Very Unlikely, then you are done. However, if the category is Very Likely or Likely, provide an instruction for the user on the third line. Examples of instructions are "You should hang up immediately.", "Do NOT give any personal information.", "You should ask why they need this information.", or "You should ask for identification."
+Remember, the category, justification, and instruction (if applicable) should be on their own separate lines. Do not allocate more than one line each for any category, justification, or instruction.
 ```
 
-```structure
-Greeting (e.g., 'Hello')
-Self identification (Name of the call agent)
-Company identification (Name of the business)
-Warm up talk (e.g., 'How are you today?')
-Statement of the reason of the call
-Callee identity check (callee's name and attribute)
+```scam_examples
+- Illegitimate/fake company names ('Windows service center' or 'US Grants and Treasury Department')
+- Giving 2 options (no option to decline): ex. Appointment for home improvement technician: spammer asks if the customers prefers 2:30pm or 4pm.
+- Make promises throughout the call (ex. free estimate with no obligation, easy cancellation, a lifetime warranty)
+- Introducing a threatening scenario such as “your computer is getting infected” or “your air duct system is badly contaminated”
+- Convincing the customer to make a payment (ex. by giving credit card information or home address for the bill)
 ```
 
-```examples
-Illegitimate/fake company names ('Windows service center' or 'US Grants and Treasury Department')
-Giving 2 options (no option to decline): ex. Appointment for home improvement technician: spammer asks if the customers prefers 2:30pm or 4pm.
-Make promises throughout the call (ex. free estimate with no obligation, easy cancellation, a lifetime warranty)
-Introducing a threatening scenario such as “your computer is getting infected” or “your air duct system is badly contaminated”
-Convincing the customer to make a payment (ex. by giving credit card information or home address for the bill)
+```response_example
+Likely Scam
+The caller's sudden change of topic to asking for a credit card number, the use of informal language, and the lack of a clear reason for needing the credit card number are all strong indicators of a scam call.
+Try asking, "Why do you need my credit card number? Can you explain the reason for this request?"
 ```
 
 ```transcript
@@ -176,7 +191,6 @@ Convincing the customer to make a payment (ex. by giving credit card information
 
 ```assistant
 """
-    print(input_)
     url = "https://api.together.xyz/v1/completions"
     payload = {
         # "model": "meta-llama/Llama-2-13b-chat-hf",
@@ -198,7 +212,6 @@ Convincing the customer to make a payment (ex. by giving credit card information
     }
 
     response = requests.post(url, json=payload, headers=headers)
-    print(response.text)
     res = json.loads(response.text)
     print(res)
     return res["choices"][0]["text"]
