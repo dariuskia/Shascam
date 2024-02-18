@@ -7,12 +7,18 @@ from flask import Flask, render_template, session, request
 from flask_sock import Sock
 import requests
 
+import json
+
+import firebase_admin
+from firebase_admin import credentials, messaging
+
 
 from SpeechClientBridge import SpeechClientBridge
 from google.cloud.speech import RecognitionConfig, StreamingRecognitionConfig
 
-global lastMessages
+global lastMessages, numMessages, infResponse
 lastMessages = []
+numMessages = 0
 
 app = Flask(__name__)
 sockets = Sock(app)
@@ -36,7 +42,7 @@ def stream():
     return render_template("streams.xml")
 
 def on_transcription_response(response):
-    global lastMessages
+    global lastMessages, numMessages, infResponse
     
     if not response.results:
         return
@@ -50,7 +56,24 @@ def on_transcription_response(response):
         lastMessages.append(transcription)
     else:
         lastMessages[-1] = transcription
-    print(lastMessages)
+    totalMessages = len(" ".join(lastMessages).split(" "))
+    if totalMessages - numMessages >= 12:
+        message = " ".join(totalMessages)
+        infResponse = generate(message)
+        category = infResponse.split("\n")[0]
+        if category == "Very Likely" or category == "Likely":
+            curr_message = "🧌 Beware! Scam likely!"
+            send_notification(
+                token="cJFlg2RjXENShemCj0klZZ:APA91bED_Czt--ZpMynY5pMmrT2Owfj6fNaHBFtiFNMJYjXeVmPs00UznYpUtrzs8kETLKzwVPRyCTbo8K1-SI610C7UK1wFOEto975h8AgPVi9Fzbz9SVfcZEXzBLI0EUx4nHBl8-FW",
+                title="",
+                message=curr_message
+            )
+                
+
+        
+@app.route('/scam_detect', methods=['GET'])
+def scam_detect():
+    infResponse
 
 @sockets.route('/media')
 def echo(ws):
@@ -85,39 +108,44 @@ def echo(ws):
     print("WS connection closed")
 
 
-@app.route('/generate', methods=['GET', 'POST'])
-def generate():
-    curr_text = request.json["transcript"]
+# @app.route('/generate', methods=['GET', 'POST'])
+def generate(curr_text):
     input_ = """
-    ```system
-    You are an AI assistant tasked with classifying cell phone conversations as scam calls.
-    I will provide you the general structure for scam calls, examples of scam call topics and patterns, and finally the transcript of the call in question. 
-    I want you to analyze the transcript and decide whether the transcript describes a scam call or a normal call. 
-    Respond only with 1 of the 5 following categories: "Very Likely Scam", "Likely Scam", "Meh", "Unlikely Scam", "Very Unlikely Scam."
-    Do NOT give a justification or any other text after or before your decided category.
+```system
+You are an AI assistant tasked with classifying cell phone conversations as scam calls.
+I will provide you the general structure for scam calls, examples of scam call topics and patterns, and finally the transcript of the call in question. 
+I want you to analyze the transcript and decide whether the transcript describes a scam call or a normal call. 
+Respond only with 1 of the 4 following categories: "Very Likely Scam", "Likely Scam", "Unlikely Scam", "Very Unlikely Scam." On a new line add a 2-3 sentence justification for each decision.
+Give the following extraneous information depending on the decided category:
+1. Very Likely: Provide an action for the user to do. For example, "Hang up immediately.", or "Do NOT give any personal information."
+2. Likely: Provide clarifying questions for the user to ask. For example, "Why do you need this information?"
+3. Unlikely: Do NOT provide any actions or questions for the user to do.
+4. Very Unlikely: Do NOT provide any actions or questions for the user to do.
+```
 
-    ```timeline
-    Greeting (e.g., 'Hello') 
-    Self identification (Name of the call agent) 
-    Company identification (Name of the business) 
-    Warm up talk (e.g., 'How are you today?') 
-    Statement of the reason of the call 
-    Callee identity check (callee's name and attribute) 
-    ```
+```structure
+Greeting (e.g., 'Hello') 
+Self identification (Name of the call agent) 
+Company identification (Name of the business) 
+Warm up talk (e.g., 'How are you today?') 
+Statement of the reason of the call 
+Callee identity check (callee's name and attribute) 
+```
 
-    ```examples
-    Illegitimate/fake company names ('Windows service center' or 'US Grants and Treasury Department')
-    Giving 2 options (no option to decline): ex. Appointment for home improvement technician: spammer asks if the customers prefers 2:30pm or 4pm. 
-    Make promises throughout the call (ex. free estimate with no obligation, easy cancellation, a lifetime warranty)
-    Introducing a threatening scenario such as “your computer is getting infected” or “your air duct system is badly contaminated”
-    Convincing the customer to make a payment (ex. by giving credit card information or home address for the bill)
-    ```
+```examples
+Illegitimate/fake company names ('Windows service center' or 'US Grants and Treasury Department')
+Giving 2 options (no option to decline): ex. Appointment for home improvement technician: spammer asks if the customers prefers 2:30pm or 4pm. 
+Make promises throughout the call (ex. free estimate with no obligation, easy cancellation, a lifetime warranty)
+Introducing a threatening scenario such as “your computer is getting infected” or “your air duct system is badly contaminated”
+Convincing the customer to make a payment (ex. by giving credit card information or home address for the bill)
+```
 
-    ```transcript 
-    """ + curr_text + """
-    ```
+```transcript 
+""" + curr_text + """
+```
 
-    ```assistant
+```assistant
+
     """
 
     url = "https://api.together.xyz/v1/completions"
@@ -144,14 +172,36 @@ def generate():
     return res["choices"][0]["text"]
 
 
-    # # data = request.get_json()
-    # prompt = data.get("prompt", 
-    # "transcript: Hello, is this Bob Smith? Yes, this is he. I’m John, calling from the Social Security Administration. It has come to our attention that there has been suspicious activity on your account spread out over the last six months. Due to participation in highly illicit activities, we have contacted law enforcement agencies to suspend your social security number effective immediately. What? I haven’t done anything illegal. Could my identity have gotten stolen? I was emailed about a breach in a government database recently... Tracing your account activity over the past 10 years, it does seem likely that this recent string of activity is due to someone else using your identity for their illicit activity -- timeline: Greeting (e.g., ’Hello’) \n Self identification (Name of the call agent) \n Company identification (Name of the business) \n Warm up talk (e.g., ’How are you today?’) \n Statement of the reason of the call \n Callee identity check (callee’s name and attribute) ")
-    # max_length = data.get("max_length", 50)  # Default length, adjust as needed
-    
-    # Generate text
-    # output = llama_pipeline(prompt, max_length=max_length, return_full_text=False)
-    # return jsonify(output)
+def send_notification(token, title, message, ):
+    api_accesskey = "AAAAQzwz1Ns:APA91bElRlZYgYMVD7uysJVuH0szueLgH3BJBuw8DIjJiD0FQJIVtclj-b033EcgiEcKedmxaJttVwbs8lm5Vi4hsrUXNHx_l3jWH7fgU0Rwom7bU2-0xTzBFQKX67v0RcaE5-ISeJ83"
+    url = 'https://fcm.googleapis.com/fcm/send'
+    headers = {
+        'Authorization': 'key=' + api_accesskey,
+        'Content-Type': 'application/json'
+    }
+    data = {
+        'notification': {
+            'title': title,
+            'body': message,
+            'icon': 'myIcon',  # Customize as needed
+            'sound': 'mySound'  # Customize as needed
+        },
+        'to': token
+    }
+    response = requests.post(url, headers=headers, data=json.dumps(data))
+    if response.status_code == 200:
+        print("Notification sent successfully.")
+    else:
+        print("Failed to send notification. Status code:", response.status_code)
+
+# Example Usage
+send_notification(
+    token="cJFlg2RjXENShemCj0klZZ:APA91bED_Czt--ZpMynY5pMmrT2Owfj6fNaHBFtiFNMJYjXeVmPs00UznYpUtrzs8kETLKzwVPRyCTbo8K1-SI610C7UK1wFOEto975h8AgPVi9Fzbz9SVfcZEXzBLI0EUx4nHBl8-FW",
+    title="Notification Title",
+    message="Notification Message"
+)
+
+
 
 
 
