@@ -84,7 +84,22 @@ def on_transcription_response(response):
         
 @app.route('/scam_detect', methods=['GET'])
 def scam_detect():
-    infResponse
+    category = infResponse.split("\n")[0]
+    justify = None
+    action_bool = True
+    action_ques = None
+    if category == "Very Likely":
+        justify = infResponse.split("\n")[1]
+        action_bool = True
+        action_ques = infResponse.split("\n")[2]
+    elif category == "Likely":
+        justify = infResponse.split("\n")[1]
+        action_bool = False
+        action_ques = infResponse.split("\n")[2]
+    
+    curr_out = {"category": category, "justify": justify, "action_bool": action_bool, "action_ques": action_ques}
+    json_out = json.dumps(curr_out)
+    return json_out
 
 @sockets.route('/media')
 def echo(ws):
@@ -156,7 +171,7 @@ Convincing the customer to make a payment (ex. by giving credit card information
 ```
 
 ```transcript
-""" + curr_text +"""
+""" + curr_text + """
 ```
 
 ```assistant
