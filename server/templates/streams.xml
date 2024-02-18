@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Response>
+  <Say>This call is being recorded for security purposes.</Say>
   <Start>
     <Stream track="both_tracks" url="wss://superb-mighty-tortoise.ngrok-free.app/media" />
   </Start>
