@@ -41,7 +41,7 @@ class SpeechClientBridge:
             # Use a blocking get() to ensure there's at least one chunk of
             # data, and stop iteration if the chunk is None, indicating the
             # end of the audio stream.
-            chunk, last_track = self._queue.get()
+            chunk = self._queue.get()
             if chunk is None:
                 return
             data = [chunk]
@@ -50,13 +50,11 @@ class SpeechClientBridge:
             # Now consume whatever other data's still buffered.
             while True:
                 try:
-                    chunk, track = self._queue.get(block=False)
+                    chunk = self._queue.get(block=False)
                     if chunk is None:
                         return
                     data.append(chunk)
-                    last_track = track
                 except queue.Empty:
                     break
-            self.last_track = last_track
             yield b"".join(data)
         print("outside of loop")

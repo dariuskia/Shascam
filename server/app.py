@@ -3,14 +3,16 @@ import json
 import logging
 import threading
 
-from flask import Flask, render_template, session
+from flask import Flask, render_template, session, request
 from flask_sock import Sock
+import requests
 
-from langchain.llms import Together
 
 from SpeechClientBridge import SpeechClientBridge
 from google.cloud.speech import RecognitionConfig, StreamingRecognitionConfig
 
+global lastMessages
+lastMessages = []
 
 app = Flask(__name__)
 sockets = Sock(app)
@@ -34,6 +36,8 @@ def stream():
     return render_template("streams.xml")
 
 def on_transcription_response(response):
+    global lastMessages
+    
     if not response.results:
         return
 
@@ -41,8 +45,12 @@ def on_transcription_response(response):
     if not result.alternatives:
         return
 
-    transcription = result.alternatives[0].transcript
-    print("Transcription: " + transcription)
+    transcription = result.alternatives[0].transcript.strip()
+    if len(lastMessages) == 0 or (not transcription.startswith(lastMessages[-1])):
+        lastMessages.append(transcription)
+    else:
+        lastMessages[-1] = transcription
+    print(lastMessages)
 
 @sockets.route('/media')
 def echo(ws):
@@ -64,10 +72,9 @@ def echo(ws):
             print(f"Media WS: Received event '{data['event']}': {message}")
             continue
         if data["event"] == "media":
-            print(data)
             media = data["media"]
             chunk = base64.b64decode(media["payload"])
-            bridge.add_request(chunk, media["track"])
+            bridge.add_request(chunk)
         if data["event"] == "stop":
             print(f"Media WS: Received event 'stop': {message}")
             print("Stopping...")
@@ -79,44 +86,62 @@ def echo(ws):
 
 
 @app.route('/generate', methods=['GET', 'POST'])
-def generate(request):
-    # url = "https://api.together.xyz/v1/chat/completions"
-
-
-    llm = Together(
-        model="meta-llama/Llama-2-70b-chat-hf",
-        temperature=0.7,
-        max_tokens=128,
-        top_k=1,
-        together_api_key="28b95c36819576c23c67342a36ea9a65584b477eef1cba12ae4778db4bea77b4"
-    )
-
-    curr_text = request.values["currText"]
+def generate():
+    curr_text = request.json["transcript"]
     input_ = """
-
-    ```transcript """ + curr_text + """
-
-    ```
+    ```system
+    You are an AI assistant tasked with classifying cell phone conversations as scam calls.
+    I will provide you the general structure for scam calls, examples of scam call topics and patterns, and finally the transcript of the call in question. 
+    I want you to analyze the transcript and decide whether the transcript describes a scam call or a normal call. 
+    Respond only with 1 of the 5 following categories: "Very Likely Scam", "Likely Scam", "Meh", "Unlikely Scam", "Very Unlikely Scam."
+    Do NOT give a justification or any other text after or before your decided category.
 
     ```timeline
-    Greeting (e.g., ’Hello’) 
+    Greeting (e.g., 'Hello') 
     Self identification (Name of the call agent) 
     Company identification (Name of the business) 
-    Warm up talk (e.g., ’How are you today?’) 
+    Warm up talk (e.g., 'How are you today?') 
     Statement of the reason of the call 
-    Callee identity check (callee’s name and attribute) 
+    Callee identity check (callee's name and attribute) 
     ```
 
-    ```Features:
-    Illegitimate/fake company names (‘Windows service center’ or ‘US Grants and Treasury Department’)
+    ```examples
+    Illegitimate/fake company names ('Windows service center' or 'US Grants and Treasury Department')
     Giving 2 options (no option to decline): ex. Appointment for home improvement technician: spammer asks if the customers prefers 2:30pm or 4pm. 
     Make promises throughout the call (ex. free estimate with no obligation, easy cancellation, a lifetime warranty)
     Introducing a threatening scenario such as “your computer is getting infected” or “your air duct system is badly contaminated”
     Convincing the customer to make a payment (ex. by giving credit card information or home address for the bill)
     ```
 
+    ```transcript 
+    """ + curr_text + """
+    ```
+
+    ```assistant
     """
-    return llm(input_)
+
+    url = "https://api.together.xyz/v1/completions"
+    payload = {
+        "model": "meta-llama/Llama-2-13b-chat-hf",
+        "prompt": input_,
+        "max_tokens": 16,
+        "stop": ["```"],
+        "temperature": 0.7,
+        "top_p": 0.7,
+        "top_k": 50,
+        "repetition_penalty": 1,
+        "n": 1
+    }
+
+    headers = {
+        "accept": "application/json",
+        "content-type": "application/json",
+        "Authorization": "Bearer 28b95c36819576c23c67342a36ea9a65584b477eef1cba12ae4778db4bea77b4"
+    }
+
+    response = requests.post(url, json=payload, headers=headers)
+    res = json.loads(response.text)
+    return res["choices"][0]["text"]
 
 
     # # data = request.get_json()
