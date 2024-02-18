@@ -16,7 +16,8 @@ from firebase_admin import credentials, messaging
 from SpeechClientBridge import SpeechClientBridge
 from google.cloud.speech import RecognitionConfig, StreamingRecognitionConfig
 
-global lastMessages, numMessages, infResponse
+global lastMessages, numMessages
+global infResponse
 lastMessages = []
 numMessages = 0
 
@@ -35,9 +36,9 @@ config = RecognitionConfig(
 streaming_config = StreamingRecognitionConfig(config=config, interim_results=True)
 
 
-@app.route('/', methods=['GET'])
-def home():
-    return infResponse
+# @app.route('/', methods=['GET'])
+# def home():
+#     return infResponse
 
 
 @app.route('/stream', methods=['POST'])
@@ -72,11 +73,11 @@ def on_transcription_response(response):
         infResponse = generate(message)
         print(infResponse)
         category = infResponse.split("\n")[0]
-        if "Likely" in category:
+        if "Likely" in category or "Very Likely" in category:
             curr_message = "🧌 Beware! Scam likely!"
             send_notification(
                 token="cJFlg2RjXENShemCj0klZZ:APA91bED_Czt--ZpMynY5pMmrT2Owfj6fNaHBFtiFNMJYjXeVmPs00UznYpUtrzs8kETLKzwVPRyCTbo8K1-SI610C7UK1wFOEto975h8AgPVi9Fzbz9SVfcZEXzBLI0EUx4nHBl8-FW",
-                title="",
+                title="", 
                 message=curr_message
             )
                 
@@ -84,22 +85,26 @@ def on_transcription_response(response):
         
 @app.route('/scam_detect', methods=['GET'])
 def scam_detect():
-    category = infResponse.split("\n")[0]
-    justify = None
-    action_bool = True
-    action_ques = None
-    if category == "Very Likely":
-        justify = infResponse.split("\n")[1]
+    if infResponse != None:
+        category = infResponse.split("\n")[0]
+        justify = None
         action_bool = True
-        action_ques = infResponse.split("\n")[2]
-    elif category == "Likely":
-        justify = infResponse.split("\n")[1]
-        action_bool = False
-        action_ques = infResponse.split("\n")[2]
-    
-    curr_out = {"category": category, "justify": justify, "action_bool": action_bool, "action_ques": action_ques}
-    json_out = json.dumps(curr_out)
-    return json_out
+        action_ques = None
+        
+        if category == "Very Likely":
+            justify = infResponse.split("\n")[1]
+            action_bool = True
+            action_ques = infResponse.split("\n")[2]
+        elif category == "Likely":
+            justify = infResponse.split("\n")[1]
+            action_bool = False
+            action_ques = infResponse.split("\n")[2]
+        
+        curr_out = {"category": category, "justify": justify, "action_bool": action_bool, "action_ques": action_ques}
+        json_out = json.dumps(curr_out)
+        return json_out
+    else:
+        return json.dumps({"category": None})
 
 @sockets.route('/media')
 def echo(ws):
