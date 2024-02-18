@@ -27,7 +27,9 @@ export default function App() {
     const [enableDash, setEnableDash] = useState(false);
     useEffect(() => {
       requestPermission();
-      fetchScamOutput();
+      const interval = setInterval(() => {
+        fetchScamOutput();
+      }, 10000);
     }, []);
 
     requestPermission();
@@ -48,36 +50,43 @@ export default function App() {
       }
     }
 
-    function getScamDetection(){
-      url = apiURL + "/scam_detect"
-      let uploaddoc = async (formdata) => {
-        try {
-          const response = await fetch(url, {
-            method: 'GET',
-            headers: {
-              'Content-Type': 'multipart/form-data',
-              "Authorization": `Bearer ${token}`
-            },
-            body:formdata,
-            redirect: "manual"
-          })
-          return response.json();
-        }
-        catch (e) {
-          //console.log(e);
-        }
+    async function getScamDetection(){
+      const url = apiURL + "/scam_detect";
+      try {
+        const response = await fetch(url, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+          redirect: "manual"
+        });
+        const data = await response.json();
+        console.log(data); 
+        return data; 
+      } catch (error) {
+        console.error('Error fetching scam detection:', error);
+        throw error; 
       }
     }
-
-    function fetchScamOutput(){
-      const currDetect = getScamDetection().then((currResp) => {
-        setCategory(currResp.category);
-        setJustify(currResp.justify);
-        setActionBool(currResp.actionBool);
-        setActionQues(currResp.actionQues);
-        setEnableDash(currResp.enableDash);
-      })
+    
+    async function fetchScamOutput(){
+      try {
+        const currResp = await getScamDetection();
+        console.log(currResp);
+        if(currResp && currResp.category != null){
+          setCategory(currResp.category);
+          setJustify(currResp.justify);
+          setActionBool(currResp.actionBool);
+          setActionQues(currResp.actionQues);
+          setEnableDash(true);
+        } else {
+          setEnableDash(false);
+        }
+      } catch (error) {
+        console.error('Error fetching scam output:', error);
+      }
     }
+    
   
     return (
       <View style={styles.container}>
