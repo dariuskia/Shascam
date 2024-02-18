@@ -35,6 +35,11 @@ config = RecognitionConfig(
 streaming_config = StreamingRecognitionConfig(config=config, interim_results=True)
 
 
+@app.route('/', methods=['GET'])
+def home():
+    return infResponse
+
+
 @app.route('/stream', methods=['POST'])
 def stream():
     # pnumber = request.values.get("pnumber")
@@ -52,23 +57,28 @@ def on_transcription_response(response):
         return
 
     transcription = result.alternatives[0].transcript.strip()
-    if len(lastMessages) == 0 or (not transcription.startswith(lastMessages[-1])):
+    if len(lastMessages) == 0:
         lastMessages.append(transcription)
-    else:
+    if transcription.startswith(lastMessages[-1]):
         lastMessages[-1] = transcription
+    elif lastMessages[-1].startswith(transcription):
+        pass
+    else:
+        lastMessages.append(transcription)
     totalMessages = len(" ".join(lastMessages).split(" "))
-    if totalMessages - numMessages >= 12:
-        message = " ".join(totalMessages)
+    if totalMessages - numMessages >= 24:
+        message = " ".join(lastMessages)
+        numMessages = totalMessages
         infResponse = generate(message)
         print(infResponse)
-        # category = infResponse.split("\n")[0]
-        # if category == "Very Likely" or category == "Likely":
-        #     curr_message = "🧌 Beware! Scam likely!"
-        #     send_notification(
-        #         token="cJFlg2RjXENShemCj0klZZ:APA91bED_Czt--ZpMynY5pMmrT2Owfj6fNaHBFtiFNMJYjXeVmPs00UznYpUtrzs8kETLKzwVPRyCTbo8K1-SI610C7UK1wFOEto975h8AgPVi9Fzbz9SVfcZEXzBLI0EUx4nHBl8-FW",
-        #         title="",
-        #         message=curr_message
-        #     )
+        category = infResponse.split("\n")[0]
+        if "Likely" in category:
+            curr_message = "🧌 Beware! Scam likely!"
+            send_notification(
+                token="cJFlg2RjXENShemCj0klZZ:APA91bED_Czt--ZpMynY5pMmrT2Owfj6fNaHBFtiFNMJYjXeVmPs00UznYpUtrzs8kETLKzwVPRyCTbo8K1-SI610C7UK1wFOEto975h8AgPVi9Fzbz9SVfcZEXzBLI0EUx4nHBl8-FW",
+                title="",
+                message=curr_message
+            )
                 
 
         
@@ -93,6 +103,7 @@ def scam_detect():
 
 @sockets.route('/media')
 def echo(ws):
+    global lastMessages, numMessages, infResponse
     print("WS connection opened")
     bridge = SpeechClientBridge(streaming_config, on_transcription_response)
     t = threading.Thread(target=bridge.start)
@@ -118,6 +129,9 @@ def echo(ws):
             print(f"Media WS: Received event 'stop': {message}")
             print("Stopping...")
             ws.close()
+            lastMessages = []
+            numMessages = 0
+            infResponse = "" # not sure if this will break it
             break
 
     bridge.terminate()
@@ -129,10 +143,10 @@ def generate(curr_text):
     input_ = """
 ```system
 You are an AI assistant tasked with classifying cell phone conversations as scam calls.
-I will provide you the general structure for scam calls, examples of scam call topics and patterns, and finally the transcript of the call in question. 
-I want you to analyze the transcript and decide whether the transcript describes a scam call or a normal call. 
+I will provide you the general structure for scam calls, examples of scam call topics and patterns, and finally the transcript of the call in question.
+I want you to analyze the transcript and decide whether the transcript describes a scam call or a normal call.
 Respond only with 1 of the 4 following categories: "Very Likely Scam", "Likely Scam", "Unlikely Scam", "Very Unlikely Scam." On a new line add a 2-3 sentence justification for each decision.
-On a new line, give the following extraneous information depending on the decided category:
+Give the following extraneous information on a new line depending on the decided category:
 1. Very Likely: Provide an action for the user to do. For example, "Hang up immediately.", or "Do NOT give any personal information."
 2. Likely: Provide clarifying questions for the user to ask. For example, "Why do you need this information?"
 3. Unlikely: Do NOT provide any actions or questions for the user to do.
@@ -140,37 +154,37 @@ On a new line, give the following extraneous information depending on the decide
 ```
 
 ```structure
-Greeting (e.g., 'Hello') 
-Self identification (Name of the call agent) 
-Company identification (Name of the business) 
-Warm up talk (e.g., 'How are you today?') 
-Statement of the reason of the call 
-Callee identity check (callee's name and attribute) 
+Greeting (e.g., 'Hello')
+Self identification (Name of the call agent)
+Company identification (Name of the business)
+Warm up talk (e.g., 'How are you today?')
+Statement of the reason of the call
+Callee identity check (callee's name and attribute)
 ```
 
 ```examples
 Illegitimate/fake company names ('Windows service center' or 'US Grants and Treasury Department')
-Giving 2 options (no option to decline): ex. Appointment for home improvement technician: spammer asks if the customers prefers 2:30pm or 4pm. 
+Giving 2 options (no option to decline): ex. Appointment for home improvement technician: spammer asks if the customers prefers 2:30pm or 4pm.
 Make promises throughout the call (ex. free estimate with no obligation, easy cancellation, a lifetime warranty)
 Introducing a threatening scenario such as “your computer is getting infected” or “your air duct system is badly contaminated”
 Convincing the customer to make a payment (ex. by giving credit card information or home address for the bill)
 ```
 
-```transcript 
+```transcript
 """ + curr_text + """
 ```
 
 ```assistant
-
-    """
-
+"""
+    print(input_)
     url = "https://api.together.xyz/v1/completions"
     payload = {
-        "model": "meta-llama/Llama-2-13b-chat-hf",
+        # "model": "meta-llama/Llama-2-13b-chat-hf",
+        "model": "mistralai/Mixtral-8x7B-Instruct-v0.1",
         "prompt": input_,
-        "max_tokens": 16,
+        "max_tokens": 256,
         "stop": ["```"],
-        "temperature": 0.7,
+        "temperature": 0.1,
         "top_p": 0.7,
         "top_k": 50,
         "repetition_penalty": 1,
@@ -184,7 +198,9 @@ Convincing the customer to make a payment (ex. by giving credit card information
     }
 
     response = requests.post(url, json=payload, headers=headers)
+    print(response.text)
     res = json.loads(response.text)
+    print(res)
     return res["choices"][0]["text"]
 
 
