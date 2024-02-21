@@ -1,0 +1,1 @@
+wanted to verify that this circuit is safe to work on and the multimeter tells us that it is in fact off and safe to work on the gardener bender non-contact tester disagrees
