@@ -5,9 +5,9 @@ ShaScam leverages cutting-edge technologies to protect users from phishing and s
 
 ## Features
 
-- **Real-time Scam Analysis:** Utilizes Twilio for call routing and Google Cloud for transcription, analyzing conversations in real-time to detect scam likelihood.
-- **Intelligent Call Filtering:** Employs a 13B parameter Llama 2 model for dynamic analysis of call content, offering immediate risk assessment and response recommendations.
-- **User-Centric Design:** Offers a simple, intuitive interface for managing Twilio proxy numbers and receiving instant alerts on potential scam calls.
+- [x] **Real-time Scam Analysis:** Utilizes Twilio for call routing and Google Cloud for transcription, analyzing conversations in real-time to detect scam likelihood.
+- [x] **Intelligent Call Filtering:** Employs a 13B parameter Llama 2 model for dynamic analysis of call content, offering immediate risk assessment and response recommendations.
+- [x] **User-Centric Design:** Offers a simple, intuitive interface for managing Twilio proxy numbers and receiving instant alerts on potential scam calls.
 
 ## Technical Challenges and Solutions
 
@@ -17,7 +17,9 @@ ShaScam leverages cutting-edge technologies to protect users from phishing and s
 
 ## Future Directions
 
-- **Enhanced Scam Trend Analysis:** Developing capabilities to categorize and analyze scam trends for personalized user alerts.
-- **Model Fine-Tuning:** Continuous improvement of the LLM's accuracy through the acquisition and incorporation of diverse and high-quality data sets.
+- [ ] **Enhanced Scam Trend Analysis:** Developing capabilities to categorize and analyze scam trends for personalized user alerts.
+- [ ] **Model Fine-Tuning:** Continuous improvement of the LLM's accuracy through the acquisition and incorporation of diverse and high-quality data sets.
 
 ShaScam represents a significant step forward in the use of AI and real-time data processing for scam call detection and prevention, offering users a proactive tool against potential security threats.
+
+Built with ❤️ by Nitya Arora, Tanush Chopra, Sahil Gupta, and Darius Kianersi.
