@@ -1,4 +1,4 @@
-# Shascam: Live, AI-Enabled Call Security
+# ShaScam: Live, AI-Enabled Call Security
 ## Overview
 
 ShaScam leverages cutting-edge technologies to protect users from phishing and spam calls in real-time. By integrating Twilio's API for call management and Google Cloud's speech-to-text for live call transcription, alongside advanced LLM inference with a 13B parameter Llama 2 model, ShaScam provides an innovative defense mechanism against the rapidly evolving threat landscape of scam calls.
