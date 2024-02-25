@@ -2,7 +2,7 @@
 <Response>
   <Say>This call is being recorded for security purposes.</Say>
   <Start>
-    <Stream track="both_tracks" url="wss://superb-mighty-tortoise.ngrok-free.app/media" />
+    <Stream track="both_tracks" url="wss://rare-previously-coyote.ngrok-free.app/media" />
   </Start>
   <Dial>+14086217775</Dial>
 </Response>

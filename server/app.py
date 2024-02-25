@@ -63,9 +63,10 @@ def on_transcription_response(response):
     else:
         lastMessages.append(transcription)
     totalMessages = len(" ".join(lastMessages).split(" "))
-    if totalMessages - numMessages >= 24:
+    if totalMessages - numMessages >= 12:
         message = " ".join(lastMessages)
         numMessages = totalMessages
+        print("TRANSCRIPT:", message)
         infResponse = generate(message)
         print(infResponse)
         category = infResponse.split("\n")[0]
@@ -82,9 +83,10 @@ def on_transcription_response(response):
 @app.route('/scam_detect', methods=['GET'])
 def scam_detect():
     global infResponse
-    if infResponse != None:
+    if infResponse != None and infResponse != "":
         print("infresponse: ", infResponse)
         fields = re.split(r"\n+", infResponse.strip())
+        print(fields)
         category = fields[0]
         if "Likely" in category:
             json_res = {
@@ -99,25 +101,6 @@ def scam_detect():
                 "action": None
             }
         return json.dumps(json_res)
-
-    if infResponse != None:
-        category = infResponse.split("\n\n")[0]
-        justify = None
-        action_bool = True
-        action_ques = None
-        
-        if category == "Very Likely":
-            justify = infResponse.split("\n\n")[1]
-            action_bool = True
-            action_ques = infResponse.split("\n\n")[2]
-        elif category == "Likely":
-            justify = infResponse.split("\n\n")[1]
-            action_bool = False
-            action_ques = infResponse.split("\n\n")[2]
-        
-        curr_out = {"category": category, "justify": justify, "action_bool": action_bool, "action_ques": action_ques}
-        json_out = json.dumps(curr_out)
-        return json_out
     else:
         return json.dumps({"category": None})
 
@@ -169,6 +152,7 @@ On one line, state 1 of the 4 following categories: "Very Likely Scam", "Likely 
 On the next line, add a 2-3 sentence justification for your decision.
 If the category is Unlikely or Very Unlikely, then you are done. However, if the category is Very Likely or Likely, provide an instruction for the user on the third line. Examples of instructions are "You should hang up immediately.", "Do NOT give any personal information.", "You should ask why they need this information.", or "You should ask for identification."
 Remember, the category, justification, and instruction (if applicable) should be on their own separate lines. Do not allocate more than one line each for any category, justification, or instruction.
+However, be SURE not to identify false positive scams. Casual conversations between friends are not likely to be scams.
 ```
 
 ```scam_examples
