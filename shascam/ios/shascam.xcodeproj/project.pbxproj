@@ -12,6 +12,8 @@
 		13B07FBC1A68108700A75B9A /* AppDelegate.mm in Sources */ = {isa = PBXBuildFile; fileRef = 13B07FB01A68108700A75B9A /* AppDelegate.mm */; };
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
 		13B07FC11A68108700A75B9A /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 13B07FB71A68108700A75B9A /* main.m */; };
+		26808B7E2B905DE2001ECAAC /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 26808B7D2B905DE2001ECAAC /* GoogleService-Info.plist */; };
+		26808B7F2B905DE2001ECAAC /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 26808B7D2B905DE2001ECAAC /* GoogleService-Info.plist */; };
 		7699B88040F8A987B510C191 /* libPods-shascam-shascamTests.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 19F6CBCC0A4E27FBF8BF4A61 /* libPods-shascam-shascamTests.a */; };
 		81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */; };
 /* End PBXBuildFile section */
@@ -39,6 +41,7 @@
 		19F6CBCC0A4E27FBF8BF4A61 /* libPods-shascam-shascamTests.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-shascam-shascamTests.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		26808B6A2B904ACE001ECAAC /* shascam.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; name = shascam.entitlements; path = shascam/shascam.entitlements; sourceTree = "<group>"; };
 		26808B7C2B904D8C001ECAAC /* shascam copy-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = "shascam copy-Info.plist"; path = "/Users/darius/Documents/Shascam/shascam/ios/shascam copy-Info.plist"; sourceTree = "<absolute>"; };
+		26808B7D2B905DE2001ECAAC /* GoogleService-Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = "GoogleService-Info.plist"; path = "shascam/GoogleService-Info.plist"; sourceTree = "<group>"; };
 		3B4392A12AC88292D35C810B /* Pods-shascam.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-shascam.debug.xcconfig"; path = "Target Support Files/Pods-shascam/Pods-shascam.debug.xcconfig"; sourceTree = "<group>"; };
 		5709B34CF0A7D63546082F79 /* Pods-shascam.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-shascam.release.xcconfig"; path = "Target Support Files/Pods-shascam/Pods-shascam.release.xcconfig"; sourceTree = "<group>"; };
 		5B7EB9410499542E8C5724F5 /* Pods-shascam-shascamTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-shascam-shascamTests.debug.xcconfig"; path = "Target Support Files/Pods-shascam-shascamTests/Pods-shascam-shascamTests.debug.xcconfig"; sourceTree = "<group>"; };
@@ -119,6 +122,7 @@
 		83CBB9F61A601CBA00E9B192 = {
 			isa = PBXGroup;
 			children = (
+				26808B7D2B905DE2001ECAAC /* GoogleService-Info.plist */,
 				13B07FAE1A68108700A75B9A /* shascam */,
 				832341AE1AAA6A7D00B99B32 /* Libraries */,
 				00E356EF1AD99517003FC87E /* shascamTests */,
@@ -239,6 +243,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				26808B7F2B905DE2001ECAAC /* GoogleService-Info.plist in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -248,6 +253,7 @@
 			files = (
 				81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */,
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
+				26808B7E2B905DE2001ECAAC /* GoogleService-Info.plist in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

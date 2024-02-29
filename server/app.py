@@ -3,6 +3,7 @@ import json
 import logging
 import threading
 import regex as re
+import os
 
 from flask import Flask, render_template, session, request
 from flask_sock import Sock
@@ -14,8 +15,67 @@ import firebase_admin
 from firebase_admin import credentials, messaging
 
 
+import google.auth.transport.requests
+
 from SpeechClientBridge import SpeechClientBridge
 from google.cloud.speech import RecognitionConfig, StreamingRecognitionConfig
+from google.oauth2 import service_account
+
+PROJECT_ID = 'shascam-92eb8'
+BASE_URL = 'https://fcm.googleapis.com'
+FCM_ENDPOINT = 'v1/projects/' + PROJECT_ID + '/messages:send'
+FCM_URL = BASE_URL + '/' + FCM_ENDPOINT
+SCOPES = ['https://www.googleapis.com/auth/firebase.messaging']
+
+def _get_access_token():
+  """Retrieve a valid access token that can be used to authorize requests.
+
+  :return: Access token.
+  """
+  credentials = service_account.Credentials.from_service_account_file(
+    'shascam-92eb8-firebase-adminsdk-46vh5-49c54f35dd.json', scopes=SCOPES)
+  request = google.auth.transport.requests.Request()
+  credentials.refresh(request)
+  return credentials.token
+
+def _send_fcm_message(fcm_message):
+  """Send HTTP request to FCM with given message.
+
+  Args:
+    fcm_message: JSON object that will make up the body of the request.
+  """
+  # [START use_access_token]
+  headers = {
+    'Authorization': 'Bearer ' + _get_access_token(),
+    'Content-Type': 'application/json; UTF-8',
+  }
+  # [END use_access_token]
+  resp = requests.post(FCM_URL, data=json.dumps(fcm_message), headers=headers)
+
+  if resp.status_code == 200:
+    print('Message sent to Firebase for delivery, response:')
+    print(resp.text)
+  else:
+    print('Unable to send message to Firebase')
+    print(resp.text)
+
+def _build_common_message(title, message):
+  """Construct common notifiation message.
+
+  Construct a JSON object that will be used to define the
+  common parts of a notification message that will be sent
+  to any app instance subscribed to the news topic.
+  """
+  return {
+    'message': {
+      'token': os.environ.get('FCM_TOKEN'),
+      'notification': {
+        'title': title,
+        'body': message
+      }
+    }
+  }
+
 
 global lastMessages, numMessages, infResponse
 lastMessages = []
@@ -33,6 +93,8 @@ config = RecognitionConfig(
     language_code="en-US",
     model="phone_call"
 )
+
+_send_fcm_message(_build_common_message("", "Server started")) # TODO: remove this
 
 streaming_config = StreamingRecognitionConfig(config=config, interim_results=True)
 
@@ -72,11 +134,15 @@ def on_transcription_response(response):
         category = infResponse.split("\n")[0]
         if "Likely" in category or "Very Likely" in category:
             curr_message = "🧌 Beware! Scam likely!"
-            send_notification(
-                token="cJFlg2RjXENShemCj0klZZ:APA91bED_Czt--ZpMynY5pMmrT2Owfj6fNaHBFtiFNMJYjXeVmPs00UznYpUtrzs8kETLKzwVPRyCTbo8K1-SI610C7UK1wFOEto975h8AgPVi9Fzbz9SVfcZEXzBLI0EUx4nHBl8-FW",
-                title="", 
-                message=curr_message
-            )
+            msg = _build_common_message("", curr_message)
+            _send_fcm_message(msg)
+            # send_notification(
+            #     token="enIW2ENhekvnvEys077CkM:APA91bG0Zbqgl7r_BY7VX3RmNPbyMmL7qvQXy_vPx8bb3n_UL7jtrGu8K6y_ZccceXsxCTegUbvj_fDtCUAVywyf5tcY15eBsBdJcmXo1HDnw2_LQhM1blorUpHjDk9UfWO3jrDXQUps",
+            #     # TODO: make env variable
+            #     # token="cJFlg2RjXENShemCj0klZZ:APA91bED_Czt--ZpMynY5pMmrT2Owfj6fNaHBFtiFNMJYjXeVmPs00UznYpUtrzs8kETLKzwVPRyCTbo8K1-SI610C7UK1wFOEto975h8AgPVi9Fzbz9SVfcZEXzBLI0EUx4nHBl8-FW",
+            #     title="", 
+            #     message=curr_message
+            # )
                 
 
         
@@ -201,27 +267,28 @@ Try asking, "Why do you need my credit card number? Can you explain the reason f
     return res["choices"][0]["text"]
 
 
-def send_notification(token, title, message, ):
-    api_accesskey = "AAAAQzwz1Ns:APA91bElRlZYgYMVD7uysJVuH0szueLgH3BJBuw8DIjJiD0FQJIVtclj-b033EcgiEcKedmxaJttVwbs8lm5Vi4hsrUXNHx_l3jWH7fgU0Rwom7bU2-0xTzBFQKX67v0RcaE5-ISeJ83"
-    url = 'https://fcm.googleapis.com/fcm/send'
-    headers = {
-        'Authorization': 'key=' + api_accesskey,
-        'Content-Type': 'application/json'
-    }
-    data = {
-        'notification': {
-            'title': title,
-            'body': message,
-            'icon': 'myIcon',  # Customize as needed
-            'sound': 'mySound'  # Customize as needed
-        },
-        'to': token
-    }
-    response = requests.post(url, headers=headers, data=json.dumps(data))
-    if response.status_code == 200:
-        print("Notification sent successfully.")
-    else:
-        print("Failed to send notification. Status code:", response.status_code)
+# def send_notification(token, title, message, ):
+#     api_accesskey = "AAAAQzwz1Ns:APA91bElRlZYgYMVD7uysJVuH0szueLgH3BJBuw8DIjJiD0FQJIVtclj-b033EcgiEcKedmxaJttVwbs8lm5Vi4hsrUXNHx_l3jWH7fgU0Rwom7bU2-0xTzBFQKX67v0RcaE5-ISeJ83"
+#     # url = 'https://fcm.googleapis.com/fcm/send'
+#     url = "https://fcm.googleapis.com/v1/projects/shascam-92eb8/messages:send"
+#     headers = {
+#         'Authorization': 'key=' + api_accesskey,
+#         'Content-Type': 'application/json'
+#     }
+#     data = {
+#         'notification': {
+#             'title': title,
+#             'body': message,
+#             'icon': 'myIcon',  # Customize as needed
+#             'sound': 'mySound'  # Customize as needed
+#         },
+#         'to': token
+#     }
+#     response = requests.post(url, headers=headers, data=json.dumps(data))
+#     if response.status_code == 200:
+#         print("Notification sent successfully.")
+#     else:
+#         print("Failed to send notification. Status code:", response.status_code)
 
 
 

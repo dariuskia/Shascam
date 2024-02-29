@@ -5,7 +5,7 @@
  * @format
  */
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import type {PropsWithChildren} from 'react';
 import {
   SafeAreaView,
@@ -25,11 +25,47 @@ import {
   ReloadInstructions,
 } from 'react-native/Libraries/NewAppScreen';
 
+import firebase from '@react-native-firebase/app'
+import messaging from '@react-native-firebase/messaging'
+
 type SectionProps = PropsWithChildren<{
   title: string;
 }>;
 
+const RNfirebaseConfig = {
+  // apiKey: "AAAAQzwz1Ns:APA91bElRlZYgYMVD7uysJVuH0szueLgH3BJBuw8DIjJiD0FQJIVtclj-b033EcgiEcKedmxaJttVwbs8lm5Vi4hsrUXNHx_l3jWH7fgU0Rwom7bU2-0xTzBFQKX67v0RcaE5-ISeJ83",
+  apiKey: 'AIzaSyDSWrWBdEubboZ-TqcY6K1SsymMPkZCxMY',
+  //authDomain: "note-app-rn.firebaseapp.com",
+  projectId: 'shascam-92eb8',
+  databaseURL: '',
+  storageBucket: 'shascam-92eb8.appspot.com',
+  messagingSenderId: '505242653887',
+  appId: '1:505242653887:ios:cf3e4c12bc34eba727220a'
+}
+
+// firebase.initializeApp(RNfirebaseConfig);
+async function requestUserPermission() {
+  const authStatus = await messaging().requestPermission();
+  const enabled =
+    authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
+    authStatus === messaging.AuthorizationStatus.PROVISIONAL;
+
+  if (enabled) {
+    console.log('Authorization status:', authStatus);
+  }
+}
 function Section({children, title}: SectionProps): React.JSX.Element {
+
+  useEffect(() => {
+    async function getAuth() {
+      const auth = await requestUserPermission();
+      // await messaging().registerDeviceForRemoteMessages();
+      const token = await messaging().getToken();
+      console.log('Token: ', token);
+    }
+    getAuth();
+  });
+
   const isDarkMode = useColorScheme() === 'dark';
   return (
     <View style={styles.sectionContainer}>
