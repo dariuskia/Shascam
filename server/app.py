@@ -4,12 +4,12 @@ import logging
 import threading
 import regex as re
 import os
+import json
 
 from flask import Flask, render_template, session, request
 from flask_sock import Sock
 import requests
 
-import json
 
 import firebase_admin
 from firebase_admin import credentials, messaging
@@ -21,11 +21,14 @@ from SpeechClientBridge import SpeechClientBridge
 from google.cloud.speech import RecognitionConfig, StreamingRecognitionConfig
 from google.oauth2 import service_account
 
+
 PROJECT_ID = 'shascam-92eb8'
 BASE_URL = 'https://fcm.googleapis.com'
 FCM_ENDPOINT = 'v1/projects/' + PROJECT_ID + '/messages:send'
 FCM_URL = BASE_URL + '/' + FCM_ENDPOINT
 SCOPES = ['https://www.googleapis.com/auth/firebase.messaging']
+
+clients = []
 
 def _get_access_token():
   """Retrieve a valid access token that can be used to authorize requests.
@@ -83,7 +86,7 @@ numMessages = 0
 infResponse = None
 
 app = Flask(__name__)
-sockets = Sock(app)
+sock = Sock(app)
 
 HTTP_SERVER_PORT = 8080
 
@@ -131,11 +134,22 @@ def on_transcription_response(response):
         print("TRANSCRIPT:", message)
         infResponse = generate(message)
         print(infResponse)
-        category = infResponse.split("\n")[0]
+        fields = re.split(r"\n+", infResponse.strip())
+        category = fields[0]
+        action = None
+
         if "Likely" in category or "Very Likely" in category:
             curr_message = "🧌 Beware! Scam likely!"
             msg = _build_common_message("", curr_message)
             _send_fcm_message(msg)
+            action = fields[2]
+        justify = fields[1]
+        json_res = json.dumps({
+            "category": category,
+            "justify": justify,
+            "action": action
+        })
+        broadcast_model_output(json_res)
             # send_notification(
             #     token="enIW2ENhekvnvEys077CkM:APA91bG0Zbqgl7r_BY7VX3RmNPbyMmL7qvQXy_vPx8bb3n_UL7jtrGu8K6y_ZccceXsxCTegUbvj_fDtCUAVywyf5tcY15eBsBdJcmXo1HDnw2_LQhM1blorUpHjDk9UfWO3jrDXQUps",
             #     # TODO: make env variable
@@ -170,7 +184,7 @@ def scam_detect():
     else:
         return json.dumps({"category": None})
 
-@sockets.route('/media')
+@sock.route('/media')
 def echo(ws):
     global lastMessages, numMessages, infResponse
     print("WS connection opened")
@@ -181,12 +195,11 @@ def echo(ws):
     while True:
         message = ws.receive()
         if message is None:
-            bridge.add_request(None, None)
+            bridge.add_request(None)
             bridge.terminate()
             break
 
         data = json.loads(message)
-        # print(data)
         if data["event"] in ("connected", "start"):
             print(f"Media WS: Received event '{data['event']}': {message}")
             continue
@@ -197,7 +210,6 @@ def echo(ws):
         if data["event"] == "stop":
             print(f"Media WS: Received event 'stop': {message}")
             print("Stopping...")
-            ws.close()
             lastMessages = []
             numMessages = 0
             infResponse = "" # not sure if this will break it
@@ -206,6 +218,28 @@ def echo(ws):
     bridge.terminate()
     print("WS connection closed")
 
+
+def broadcast_model_output(output):
+    for client in clients: # TODO: needs to be a specific client, not all
+        try:
+            client.send(output)
+        except:
+            clients.remove(client)
+
+
+@sock.route('/model-output')
+def model_output(ws):
+    clients.append(ws)
+    try:
+        while True:
+            message = ws.receive()  # This could be a simple ping to keep the connection alive
+            # The server doesn't necessarily expect to receive messages from the client
+            # but this loop keeps the connection open.
+            print("message received from socket", message)
+    except Exception as e:
+        print(f"Connection closed: {e}")
+    finally:
+        clients.remove(ws)
 
 # @app.route('/generate', methods=['GET', 'POST'])
 def generate(curr_text):
@@ -266,6 +300,10 @@ Try asking, "Why do you need my credit card number? Can you explain the reason f
     print(res)
     return res["choices"][0]["text"]
 
+@app.route("/", methods=["GET"])
+def home():
+    return "server front page"
+
 
 # def send_notification(token, title, message, ):
 #     api_accesskey = "AAAAQzwz1Ns:APA91bElRlZYgYMVD7uysJVuH0szueLgH3BJBuw8DIjJiD0FQJIVtclj-b033EcgiEcKedmxaJttVwbs8lm5Vi4hsrUXNHx_l3jWH7fgU0Rwom7bU2-0xTzBFQKX67v0RcaE5-ISeJ83"
@@ -297,9 +335,5 @@ Try asking, "Why do you need my credit card number? Can you explain the reason f
 
 if __name__ == '__main__':
     app.logger.setLevel(logging.DEBUG)
-    from gevent import pywsgi
-    from geventwebsocket.handler import WebSocketHandler
-
-    server = pywsgi.WSGIServer(('', HTTP_SERVER_PORT), app, handler_class=WebSocketHandler)
     print("Server listening on: http://localhost:" + str(HTTP_SERVER_PORT))
-    server.serve_forever()
+    app.run(port=HTTP_SERVER_PORT)
