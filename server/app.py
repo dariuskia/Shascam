@@ -75,7 +75,15 @@ def _build_common_message(title, message):
       'notification': {
         'title': title,
         'body': message
-      }
+      },
+      'apns': {
+                'payload': {
+                    'aps': {
+                        'sound': 'default'
+                    }
+                }
+            }
+
     }
   }
 
@@ -97,6 +105,7 @@ config = RecognitionConfig(
     model="phone_call"
 )
 
+print('sending message')
 _send_fcm_message(_build_common_message("", "Server started")) # TODO: remove this
 
 streaming_config = StreamingRecognitionConfig(config=config, interim_results=True)
